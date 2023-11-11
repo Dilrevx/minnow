@@ -139,7 +139,7 @@ void FileDescriptor::read( vector<unique_ptr<string>>& buffers )
 
   size_t remaining_size = bytes_read;
   for ( auto& buf : buffers ) {
-    if ( remaining_size <= buf->size() ) {
+    if ( remaining_size >= buf->size() ) {
       remaining_size -= buf->size();
     } else if ( remaining_size == 0 ) {
       buf->clear();
