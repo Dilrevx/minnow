@@ -4,7 +4,7 @@
 
 using namespace std;
 
-ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ), buffers(), read_index() {}
+ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ), buffer(), read_index() {}
 
 void Writer::push( string data )
 {
@@ -14,9 +14,9 @@ void Writer::push( string data )
   if ( !accept_size )
     return;
   if ( accept_size == data.size() )
-    buffers.push_back( data );
+    buffer += data;
   else
-    buffers.push_back( data.substr( 0, accept_size ) );
+    buffer += data.substr( 0, accept_size );
 
   cur_size += accept_size;
   cumulative_size += accept_size;
@@ -56,22 +56,13 @@ string_view Reader::peek() const
 {
   // Your code here.
 
-  // synthesis the string into one
-  vector<string> tmp( 1 );
-
-  for ( auto i = read_index; i < buffers.size(); i++ ) {
-    tmp[0] += buffers[i];
-  }
-
-  tmp.swap( buffers );
-  read_index = 0;
-  return string_view( buffers[0] );
+  return string_view( buffer.data() + read_index, buffer.size() - read_index );
 }
 
 bool Reader::is_finished() const
 {
   // Your code here.
-  return closed && read_index == buffers.size();
+  return closed && read_index == buffer.size();
 }
 
 bool Reader::has_error() const
@@ -85,18 +76,12 @@ void Reader::pop( uint64_t len )
   // Your code here.
   if ( len > cur_size )
     throw std::runtime_error( "Reader::pop len exceed cur_size" );
+  read_index += len;
+  cur_size -= len;
 
-  while ( len > 0 ) {
-    auto poping_size = buffers[read_index].size();
-    if ( len >= poping_size ) {
-      cur_size -= poping_size;
-      buffers[read_index++].clear();
-      len -= poping_size;
-    } else {
-      cur_size -= len;
-      buffers[read_index] = buffers[read_index].substr( len );
-      len = 0;
-    }
+  if ( buffer.size() > 4 * capacity_ ) {
+    string( peek() ).swap( buffer );
+    read_index = 0;
   }
 }
 
