@@ -8,11 +8,19 @@
 class Reader;
 class Writer;
 
+// A bytestream in `memory`, without network access
 class ByteStream
 {
 protected:
   uint64_t capacity_;
   // Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
+  mutable std::vector<std::string> buffers;
+  mutable std::size_t read_index;
+  uint64_t cur_size = 0;
+  uint64_t cumulative_size = 0;
+
+  bool closed = false;
+  bool error = false;
 
 public:
   explicit ByteStream( uint64_t capacity );

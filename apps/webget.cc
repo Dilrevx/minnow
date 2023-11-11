@@ -28,8 +28,9 @@ void get_URL( const string& host, const string& path )
     string buffer;
     sock.read( buffer );
 
-    cout << buffer << endl;
+    cout << buffer;
   }
+  // cout << endl;
 }
 
 int main( int argc, char* argv[] )
