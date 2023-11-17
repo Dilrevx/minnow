@@ -2,10 +2,43 @@
 
 #include "byte_stream.hh"
 
+#include <queue>
 #include <string>
+#include <unordered_map>
 
 class Reassembler
 {
+  struct CompareFunction
+  {
+    bool operator()( const std::tuple<uint64_t, uint64_t, uint64_t>& a,
+                     const std::tuple<uint64_t, uint64_t, uint64_t>& b ) const
+    {
+      const auto [l_a, r_a, _] = a;
+      const auto [l_b, r_b, __] = b;
+      return l_a > l_b || ( l_a == l_b && r_a < r_b );
+    }
+  };
+  class _Reassembler
+  {
+    bool lastOccured = false;
+    Writer& writer;
+    /// @brief internal storage, sorted <l,r, string index>, where string index points to the trimmed incoming
+    /// string
+    std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
+                        std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>,
+                        CompareFunction>
+      buffer;
+    std::vector<std::string> storage;
+
+  public:
+    _Reassembler( Writer& _ ) : writer( _ ), buffer(), storage() {};
+    ~_Reassembler() = default;
+    void insert( uint64_t first_index, std::string data, bool is_last_substring );
+    uint64_t bytes_pending() const;
+  };
+
+  std::unordered_map<Writer*, _Reassembler> writer_map = {};
+
 public:
   /*
    * Insert a new substring to be reassembled into a ByteStream.
