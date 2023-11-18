@@ -5,6 +5,8 @@ using namespace std;
 void Reassembler::_Reassembler::insert( uint64_t first_index, string data, bool is_last_substring )
 {
   auto idx_expect = writer.bytes_pushed();
+  if ( first_index >= writer.bytes_pushed() + writer.available_capacity() )
+    goto last;
 
   // If expectation meets, casdade write everything into data;
   // Otherwise store it into `buffer`
@@ -62,8 +64,10 @@ uint64_t Reassembler::_Reassembler::bytes_pending() const
   uint64_t start = 0;
   const auto capacity = writer.available_capacity() + writer.bytes_pushed();
   while ( !buffer_copy.empty() && start < capacity ) {
-    while ( get<1>( buffer_copy.top() ) <= start )
+    if ( get<1>( buffer_copy.top() ) <= start ) {
       buffer_copy.pop();
+      continue;
+    }
     auto [l, r, _] = buffer_copy.top();
     buffer_copy.pop();
 
