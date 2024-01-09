@@ -82,6 +82,8 @@ uint64_t Reassembler::_Reassembler::bytes_pending() const
 uint64_t Reassembler::bytes_pending() const
 {
   // Your code here.
+  if ( writer_map.empty() )
+    return 0;
   const _Reassembler& reassembler = ( *writer_map.begin() ).second;
   return reassembler.bytes_pending();
 }
