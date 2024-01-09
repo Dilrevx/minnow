@@ -6,6 +6,11 @@
 
 class TCPReceiver
 {
+  bool connected = false;
+  bool finished = false;
+  Wrap32 my_seqno { 0 }, their_seqno { 0 }, my_zero { 0 }, their_zero { 0 };
+  // uint64_t their_absseq = 0, my_absseq = 0;
+
 public:
   /*
    * The TCPReceiver receives TCPSenderMessages, inserting their payload into the Reassembler
