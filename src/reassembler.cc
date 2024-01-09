@@ -59,23 +59,27 @@ void Reassembler::insert( uint64_t first_index, string data, bool is_last_substr
 uint64_t Reassembler::_Reassembler::bytes_pending() const
 {
   uint64_t ret = 0;
-  auto buffer_copy = buffer;
-
   uint64_t start = 0;
   const auto capacity = writer.available_capacity() + writer.bytes_pushed();
-  while ( !buffer_copy.empty() && start < capacity ) {
-    if ( get<1>( buffer_copy.top() ) <= start ) {
-      buffer_copy.pop();
+
+  vector<std::tuple<uint64_t, uint64_t, uint64_t>> tmp;
+
+  while ( !buffer.empty() && start < capacity ) {
+    if ( get<1>( buffer.top() ) <= start ) {
+      buffer.pop();
       continue;
     }
-    auto [l, r, _] = buffer_copy.top();
-    buffer_copy.pop();
+    auto [l, r, _] = buffer.top();
+    tmp.emplace_back( move( buffer.top() ) ); // maybe error
+    buffer.pop();
 
     r = min( r, capacity );
 
     ret += r - max( l, start );
     start = r;
   }
+  for ( auto& t : tmp )
+    buffer.push( t );
   return min( ret, writer.available_capacity() );
 }
 

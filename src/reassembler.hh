@@ -24,9 +24,9 @@ class Reassembler
     Writer& writer;
     /// @brief internal storage, sorted <l,r, string index>, where string index points to the trimmed incoming
     /// string
-    std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
-                        std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>,
-                        CompareFunction>
+    mutable std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
+                                std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>,
+                                CompareFunction>
       buffer;
     std::vector<std::string> storage;
 
