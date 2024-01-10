@@ -4,6 +4,7 @@ using namespace std;
 
 void Reassembler::insert( uint64_t first_index, string data, bool is_last_substring, Writer& output )
 {
+  changeSinceLastCount = true;
   auto idx_expect = output.bytes_pushed();
   if ( first_index <= idx_expect ) {
     int64_t bytes_to_write = first_index + data.size() - idx_expect;
@@ -43,8 +44,43 @@ last:
 uint64_t Reassembler::bytes_pending() const
 {
   // Your code here.
+  if ( meta_buffer.empty() )
+    return 0;
+
   auto ret = 0;
-  for ( auto& s : storage )
-    ret += s.size();
+  if ( !changeSinceLastCount ) {
+    for ( auto& s : storage )
+      ret += s.size();
+    return ret;
+  }
+  changeSinceLastCount = false;
+
+  decltype( meta_buffer ) tmp;
+  meta tmeta = {};
+  uint64_t rr = 0;
+
+  while ( !meta_buffer.empty() ) {
+    auto [l, r, istr] = meta_buffer.top();
+    meta_buffer.pop();
+    if ( r <= rr )
+      continue;
+
+    // r > rr
+    if ( l <= rr ) {
+      auto [_l, _r, _istr] = tmeta;
+      tmeta = { _l, r, _istr };
+      ret += r - rr;
+      storage[_istr] += storage[istr].substr( rr - l );
+      storage[istr].clear();
+    } else {
+      if ( rr )
+        tmp.push( tmeta );
+      tmeta = { l, r, istr };
+      ret += r - l;
+    }
+    rr = r;
+  }
+  tmp.push( tmeta );
+  tmp.swap( meta_buffer );
   return ret;
 }

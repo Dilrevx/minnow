@@ -21,10 +21,11 @@ class Reassembler
   };
 
   bool lastOccured = false;
+  mutable bool changeSinceLastCount = false;
   /// @brief internal storage, sorted <l,r, string index>, where string index points to the trimmed incoming
   /// string
   mutable std::priority_queue<meta, std::vector<meta>, CompareFunction> meta_buffer = {};
-  std::vector<std::string> storage = {};
+  mutable std::vector<std::string> storage = {};
 
 public:
   /*
