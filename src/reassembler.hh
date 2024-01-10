@@ -8,36 +8,23 @@
 
 class Reassembler
 {
+  typedef std::tuple<uint64_t, uint64_t, uint64_t> meta;
   struct CompareFunction
   {
-    bool operator()( const std::tuple<uint64_t, uint64_t, uint64_t>& a,
-                     const std::tuple<uint64_t, uint64_t, uint64_t>& b ) const
+    bool operator()( const meta& a, const meta& b ) const
     {
-      const auto [l_a, r_a, _] = a;
-      const auto [l_b, r_b, __] = b;
-      return l_a > l_b || ( l_a == l_b && r_a < r_b );
+      const auto [l_a, r_a, i_a] = a;
+      const auto [l_b, r_b, i_b] = b;
+      // return a > b. a < b if l_a < l_b or i_a > i_b
+      return l_a > l_b || ( ( l_a == l_b ) && ( i_a < i_b ) );
     }
   };
-  class _Reassembler
-  {
-    bool lastOccured = false;
-    Writer& writer;
-    /// @brief internal storage, sorted <l,r, string index>, where string index points to the trimmed incoming
-    /// string
-    mutable std::priority_queue<std::tuple<uint64_t, uint64_t, uint64_t>,
-                                std::vector<std::tuple<uint64_t, uint64_t, uint64_t>>,
-                                CompareFunction>
-      buffer;
-    std::vector<std::string> storage;
 
-  public:
-    _Reassembler( Writer& _ ) : writer( _ ), buffer(), storage() {};
-    ~_Reassembler() = default;
-    void insert( uint64_t first_index, std::string data, bool is_last_substring );
-    uint64_t bytes_pending() const;
-  };
-
-  std::unordered_map<Writer*, _Reassembler> writer_map = {};
+  bool lastOccured = false;
+  /// @brief internal storage, sorted <l,r, string index>, where string index points to the trimmed incoming
+  /// string
+  mutable std::priority_queue<meta, std::vector<meta>, CompareFunction> meta_buffer = {};
+  std::vector<std::string> storage = {};
 
 public:
   /*
