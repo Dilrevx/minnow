@@ -18,3 +18,9 @@ To run speed benchmarks: `cmake --build build --target speed`
 To run clang-tidy (which suggests improvements): `cmake --build build --target tidy`
 
 To format code: `cmake --build build --target format`
+
+----
+
+Lab0 - Lab3 operates only over the TCP level. They implement a parsed TCPMessage format, and test `send`/`receive` in such a level, without considering underlying datalink transmission.
+
+Lab4+ binds the TCP sender/receiver with datalink calls.
