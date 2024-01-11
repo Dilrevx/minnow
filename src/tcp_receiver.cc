@@ -9,13 +9,13 @@ void TCPReceiver::receive( TCPSenderMessage message, Reassembler& reassembler, W
     connected = true;
     // their_absseq = my_absseq = 0;
     their_zero = message.seqno;
-    their_seqno = their_zero;
+    their_seqno = their_zero + 1;
     message.seqno = message.seqno + 1;
   }
   if ( !connected )
     return;
   reassembler.insert( message.seqno.unwrap( their_zero, inbound_stream.bytes_pushed() + 1 ) - 1,
-                      message.payload,
+                      message.payload, // TODO: maybe we can release the buffer here to reduce a copy?
                       message.FIN,
                       inbound_stream );
 
