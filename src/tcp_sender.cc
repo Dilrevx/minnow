@@ -31,7 +31,16 @@ optional<TCPSenderMessage> TCPSender::maybe_send()
 void TCPSender::push( Reader& outbound_stream )
 {
   // Your code here.
-  (void)outbound_stream;
+  string data;
+
+  // Loop to send as much as possible
+  // TODO: try only send once
+  while ( outbound_stream.bytes_buffered() && data.size() < window_size ) {
+    /* code */
+    auto len = min( window_size - data.size(), outbound_stream.bytes_buffered() );
+    data += outbound_stream.peek().substr( 0, len );
+    outbound_stream.pop( len );
+  }
 }
 
 TCPSenderMessage TCPSender::send_empty_message() const
