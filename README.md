@@ -24,3 +24,9 @@ To format code: `cmake --build build --target format`
 Lab0 - Lab3 operates only over the TCP level. They implement a parsed TCPMessage format, and test `send`/`receive` in such a level, without considering underlying datalink transmission.
 
 Lab4+ binds the TCP sender/receiver with datalink calls.
+
+---
+
+ByteStream/Writer/Reader: a stream that accept no more than capacity, dropping overwhelmed data
+
+Assembler: Buffer incoming packets(no more than current writer capacity), feed them to writer.
