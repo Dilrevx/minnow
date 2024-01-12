@@ -22,6 +22,8 @@ class TCPSender
 
   uint32_t cnt_RT = 0;
   uint32_t sent_RT = 0;
+  bool force_send = true;
+  // bool zero_window_handling = false;
 
   struct VanillaTimer
   {

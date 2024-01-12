@@ -27,6 +27,7 @@ optional<TCPSenderMessage> TCPSender::maybe_send()
 {
   if ( sent_RT < cnt_RT ) {
     timer.start = true;
+    sent_RT++;
     return unacks[0];
   }
   if ( inever_send < unacks.size() ) {
@@ -39,20 +40,23 @@ optional<TCPSenderMessage> TCPSender::maybe_send()
 
 void TCPSender::push( Reader& outbound_stream )
 {
-  // Your code here.
-  if ( window_size == 0 ) {
-    // TODO
-  }
   // Loop to send as much as possible
-  // TODO: try only send once
-  while ( outbound_stream.bytes_buffered() && s_seqno - s_seqack < window_size ) {
-    /* code */
+  if ( outbound_stream.is_finished() )
+    force_send = true;
+
+  while ( ( outbound_stream.bytes_buffered() || force_send )
+          && ( !window_size || s_seqno - s_seqack < window_size ) ) {
     TCPSenderMessage msg;
+    force_send = false;
 
     msg.SYN = s_seqno == 0;
     msg.seqno = isn_ + s_seqno;
 
     auto max_payload = min( MAX_PAYLOAD_SIZE, window_size - ( s_seqno - s_seqack ) ) - msg.SYN;
+
+    // special case for window = 0
+    if ( window_size == 0 )
+      max_payload = 1;
     auto len = min( max_payload, outbound_stream.bytes_buffered() );
 
     string_view next_bytes = outbound_stream.peek().substr( 0, len );
@@ -60,22 +64,16 @@ void TCPSender::push( Reader& outbound_stream )
     outbound_stream.pop( len );
 
     if ( outbound_stream.is_finished() ) {
-      if ( msg.sequence_length() < max_payload )
+      if ( msg.sequence_length() < max_payload ) {
         msg.FIN = 1;
-      else {
-        unacks.emplace_back( move( msg ) );
-        s_seqno += msg.sequence_length();
-
-        // TODO: check if msg is clear after move.
-        msg.FIN = 1;
-        msg.seqno = isn_ + s_seqno;
-      }
+      } else
+        force_send = true;
     }
 
-    unacks.emplace_back( move( msg ) );
+    // TODO: check if msg is clear after move.
+    unacks.emplace_back( msg );
     s_seqno += msg.sequence_length();
   }
-  // TODO: corner case FIN in next packet but window full. Never send last FIN
 }
 
 TCPSenderMessage TCPSender::send_empty_message() const
@@ -105,7 +103,7 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
       unacks.pop_front();
 
       RTO = initial_RTO_ms_;
-      cnt_RT = 0;
+      cnt_RT = sent_RT = 0;
       timer.ms_elapsed = 0; // TODO: maybe half accept should clear this.
     } else
       break;
