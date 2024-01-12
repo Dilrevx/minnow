@@ -1,15 +1,34 @@
 #pragma once
 
 #include "byte_stream.hh"
+#include "tcp_config.hh"
 #include "tcp_receiver_message.hh"
 #include "tcp_sender_message.hh"
+#include <deque>
 
 class TCPSender
 {
+  static constexpr auto MAX_PAYLOAD_SIZE = TCPConfig::MAX_PAYLOAD_SIZE;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+  uint64_t RTO = 0;
 
+  // bytes available
   uint64_t window_size = 1;
+  std::deque<TCPSenderMessage> unacks = {};
+  uint64_t s_seqno = 0;
+  uint64_t s_seqack = 0;
+  uint32_t inever_send = 0;
+
+  uint32_t cnt_RT = 0;
+  uint32_t sent_RT = 0;
+
+  struct VanillaTimer
+  {
+    uint64_t ms_elapsed = 0;
+    bool start = false;
+  };
+  VanillaTimer timer = {};
 
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
