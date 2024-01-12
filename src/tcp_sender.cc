@@ -40,23 +40,24 @@ optional<TCPSenderMessage> TCPSender::maybe_send()
 
 void TCPSender::push( Reader& outbound_stream )
 {
-  // Loop to send as much as possible
-  if ( outbound_stream.is_finished() )
+  if ( outbound_stream.is_finished() && s_seqno == outbound_stream.bytes_popped() + 1 )
     force_send = true;
-
+  // Loop to send as much as possible
   while ( ( outbound_stream.bytes_buffered() || force_send )
-          && ( !window_size || s_seqno - s_seqack < window_size ) ) {
+          && ( ( !window_size && !zero_window_handling ) || s_seqno - s_seqack < window_size ) ) {
     TCPSenderMessage msg;
     force_send = false;
 
     msg.SYN = s_seqno == 0;
     msg.seqno = isn_ + s_seqno;
 
-    auto max_payload = min( MAX_PAYLOAD_SIZE, window_size - ( s_seqno - s_seqack ) ) - msg.SYN;
+    auto max_payload = min( MAX_PAYLOAD_SIZE, window_size - ( s_seqno - s_seqack ) );
 
     // special case for window = 0
-    if ( window_size == 0 )
+    if ( window_size == 0 ) {
       max_payload = 1;
+      zero_window_handling = true;
+    }
     auto len = min( max_payload, outbound_stream.bytes_buffered() );
 
     string_view next_bytes = outbound_stream.peek().substr( 0, len );
@@ -64,7 +65,7 @@ void TCPSender::push( Reader& outbound_stream )
     outbound_stream.pop( len );
 
     if ( outbound_stream.is_finished() ) {
-      if ( msg.sequence_length() < max_payload ) {
+      if ( msg.sequence_length() < window_size - ( s_seqno - s_seqack ) + zero_window_handling ) {
         msg.FIN = 1;
       } else
         force_send = true;
@@ -93,6 +94,9 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     return;
   const auto msg_seqno = msg.ackno.value().unwrap( isn_, s_seqack );
 
+  if ( msg_seqno > s_seqno )
+    return;
+
   while ( s_seqack < s_seqno ) {
     auto check_msg = unacks.front();
     auto check_seqno = check_msg.seqno.unwrap( isn_, s_seqack );
@@ -105,6 +109,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
       RTO = initial_RTO_ms_;
       cnt_RT = sent_RT = 0;
       timer.ms_elapsed = 0; // TODO: maybe half accept should clear this.
+
+      zero_window_handling = false;
     } else
       break;
   }
@@ -125,7 +131,7 @@ void TCPSender::tick( const size_t ms_since_last_tick )
       timer.start = false;
       timer.ms_elapsed = 0;
       cnt_RT++;
-      RTO *= 2;
+      RTO <<= !zero_window_handling;
     }
   }
 }
