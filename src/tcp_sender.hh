@@ -18,7 +18,7 @@ class TCPSender
   std::deque<TCPSenderMessage> unacks = {};
   uint64_t s_seqno = 0;
   uint64_t s_seqack = 0;
-  uint32_t inever_send = 0;
+  uint32_t s_isend = 0;
 
   uint32_t cnt_RT = 0;
   uint32_t sent_RT = 0;

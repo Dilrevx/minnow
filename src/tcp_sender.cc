@@ -32,9 +32,9 @@ optional<TCPSenderMessage> TCPSender::maybe_send()
     sent_RT++;
     return unacks[0];
   }
-  if ( inever_send < unacks.size() ) {
+  if ( s_isend < unacks.size() ) {
     timer.start = true;
-    return unacks[inever_send++];
+    return unacks[s_isend++];
   }
 
   return nullopt;
@@ -105,7 +105,7 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 
     if ( check_seqno + check_msg.sequence_length() <= msg_seqno ) {
       s_seqack += check_msg.sequence_length();
-      inever_send--;
+      s_isend--;
       unacks.pop_front();
 
       RTO = initial_RTO_ms_;
