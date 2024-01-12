@@ -8,7 +8,9 @@ using namespace std;
 
 /* TCPSender constructor (uses a random ISN if none given) */
 TCPSender::TCPSender( uint64_t initial_RTO_ms, optional<Wrap32> fixed_isn )
-  : isn_( fixed_isn.value_or( Wrap32 { random_device()() } ) ), initial_RTO_ms_( initial_RTO_ms )
+  : isn_( fixed_isn.value_or( Wrap32 { random_device()() } ) )
+  , initial_RTO_ms_( initial_RTO_ms )
+  , RTO( initial_RTO_ms )
 {}
 
 uint64_t TCPSender::sequence_numbers_in_flight() const
@@ -116,22 +118,18 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   }
 
   if ( s_seqack == s_seqno )
-    timer.start = false;
+    timer.reset();
 }
 
 void TCPSender::tick( const size_t ms_since_last_tick )
 {
-  // Your code here.
-  if ( !RTO )
-    RTO = initial_RTO_ms_;
+  if ( !timer.start )
+    return;
 
-  if ( timer.start ) {
-    timer.ms_elapsed += ms_since_last_tick;
-    if ( timer.ms_elapsed >= RTO ) {
-      timer.start = false;
-      timer.ms_elapsed = 0;
-      cnt_RT++;
-      RTO <<= !zero_window_handling;
-    }
+  timer.ms_elapsed += ms_since_last_tick;
+  if ( timer.ms_elapsed >= RTO ) {
+    timer.reset();
+    cnt_RT++;
+    RTO <<= !zero_window_handling;
   }
 }

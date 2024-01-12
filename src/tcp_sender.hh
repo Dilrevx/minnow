@@ -29,6 +29,7 @@ class TCPSender
   {
     uint64_t ms_elapsed = 0;
     bool start = false;
+    void reset() { ms_elapsed = start = 0; }
   };
   VanillaTimer timer = {};
 
