@@ -30,3 +30,8 @@ Lab4+ binds the TCP sender/receiver with datalink calls.
 ByteStream/Writer/Reader: a stream that accept no more than capacity, dropping overwhelmed data
 
 Assembler: Buffer incoming packets(no more than current writer capacity), feed them to writer.
+
+TCP Sender/Receiver: A light-weighted program that `support talking to` legal peers.
+
+Network Interface:
+- ARP: Address Resolution Protocol
