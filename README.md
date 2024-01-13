@@ -35,3 +35,10 @@ TCP Sender/Receiver: A light-weighted program that `support talking to` legal pe
 
 Network Interface:
 - ARP: Address Resolution Protocol
+
+---
+
+特点：
+- 报文的类型不拘泥于标准，可以先用易读的语言写好，发送时转换
+- 面向对象，泛型编程，框架有一些设计模式。例如测试框架，要做的步骤可以固定拆解，于是有比较好的框架。
+- 

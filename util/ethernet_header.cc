@@ -41,6 +41,7 @@ string EthernetHeader::to_string() const
   return ss.str();
 }
 
+// Internal impl, call ::parse
 void EthernetHeader::parse( Parser& parser )
 {
   // read destination address
@@ -57,6 +58,7 @@ void EthernetHeader::parse( Parser& parser )
   parser.integer( type );
 }
 
+// Internel impl, call ::serialize
 void EthernetHeader::serialize( Serializer& serializer ) const
 {
   // write destination address

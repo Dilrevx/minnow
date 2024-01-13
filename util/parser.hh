@@ -16,8 +16,11 @@
 
 class Serializer;
 
+// Parser provides interface to transfer a buffer list into
+// a containing integer or string
 class Parser
 {
+  // Stores a deque of <Buffer>s
   class BufferList
   {
     uint64_t size_ {};
@@ -37,6 +40,7 @@ class Parser
     uint64_t serialized_length() const { return size(); }
     bool empty() const { return size_ == 0; }
 
+    // Peek the frontmost Buffer. Throw exception if BufferList is empty
     std::string_view peek() const
     {
       if ( buffer_.empty() ) {
@@ -45,6 +49,7 @@ class Parser
       return std::string_view { buffer_.front() }.substr( skip_ );
     }
 
+    // Lazy remove frontmost bytes.
     void remove_prefix( uint64_t len )
     {
       while ( len and not buffer_.empty() ) {
@@ -59,6 +64,7 @@ class Parser
       }
     }
 
+    // Move BufferList to out.
     void dump_all( std::vector<Buffer>& out )
     {
       out.clear();
@@ -76,6 +82,7 @@ class Parser
       }
     }
 
+    // Concat and dump
     void dump_all( Buffer& out )
     {
       std::vector<Buffer> concat;
@@ -101,6 +108,7 @@ class Parser
   BufferList input_;
   bool error_ {};
 
+  // If size > input_.size, error_ is set
   void check_size( const size_t size )
   {
     if ( size > input_.size() ) {
@@ -111,12 +119,16 @@ class Parser
 public:
   explicit Parser( const std::vector<Buffer>& input ) : input_( input ) {}
 
+  // Peek current-time BufferList
   const BufferList& input() const { return input_; }
 
   bool has_error() const { return error_; }
   void set_error() { error_ = true; }
+  // Lazy remove frontmost n bytes
   void remove_prefix( size_t n ) { input_.remove_prefix( n ); }
 
+  // place the first several bytes into `out`, clear MSB to 0
+  // eg. List[0x01,0x02], integer(uint16) -> out = 0x0102
   template<std::unsigned_integral T>
   void integer( T& out )
   {
@@ -139,6 +151,7 @@ public:
     }
   }
 
+  // fill out with bytes from Buffer
   void string( std::span<char> out )
   {
     check_size( out.size() );
@@ -154,10 +167,12 @@ public:
     }
   }
 
+  // dump all
   void all_remaining( std::vector<Buffer>& out ) { input_.dump_all( out ); }
   void all_remaining( Buffer& out ) { input_.dump_all( out ); }
 };
 
+// Serializer collect and store Buffers. Call output to get the Buffers.
 class Serializer
 {
   std::vector<Buffer> output_ {};
@@ -167,6 +182,7 @@ public:
   Serializer() = default;
   explicit Serializer( std::string&& buffer ) : buffer_( std::move( buffer ) ) {}
 
+  // append the integer to internal buffer
   template<std::unsigned_integral T>
   void integer( const T& val )
   {
@@ -178,12 +194,14 @@ public:
     }
   }
 
+  // flush buffer_(may append null Buffer) and move buf to output
   void buffer( const Buffer& buf )
   {
     flush();
     output_.push_back( buf );
   }
 
+  // move bufs to output. May insert null Buffer
   void buffer( const std::vector<Buffer>& bufs )
   {
     for ( const auto& b : bufs ) {
@@ -191,12 +209,14 @@ public:
     }
   }
 
+  // append buffer_ to output_
   void flush()
   {
     output_.emplace_back( std::move( buffer_ ) );
     buffer_.clear();
   }
 
+  // flush buffer_ and return output
   std::vector<Buffer> output()
   {
     flush();
@@ -205,6 +225,7 @@ public:
 };
 
 // Helper to serialize any object (without constructing a Serializer of the caller's own)
+// Serialize: obj -> Buffers
 template<class T>
 std::vector<Buffer> serialize( const T& obj )
 {
@@ -214,6 +235,7 @@ std::vector<Buffer> serialize( const T& obj )
 }
 
 // Helper to parse any object (without constructing a Parser of the caller's own). Returns true if successful.
+// parse: Buffers -> obj
 template<class T>
 bool parse( T& obj, const std::vector<Buffer>& buffers )
 {
