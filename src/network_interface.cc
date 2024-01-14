@@ -29,7 +29,7 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   IP2ETH_STATES& meta = meta_ip2eth[ip];
 
   // Send ARP
-  if ( meta == IP2ETH_NONE || ( meta == IP2ETH_ARP_SENT && timer.check_event<Timer::TIMER_ARP_TIMEOUT>( ip ) ) ) {
+  if ( meta == IP2ETH_NONE ) {
     ARPMessage&& payload = {
       .opcode = ARPMessage::OPCODE_REQUEST,
       .sender_ethernet_address = ethernet_address_,
@@ -118,9 +118,11 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
   ARPMessage msg;
   if ( !parse( msg, payload ) )
     return;
+
   meta_ip2eth[msg.sender_ip_address] = IP2ETH_VALID;
   ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
   timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, msg.sender_ip_address );
+
   switch ( msg.opcode ) {
     case ARPMessage::OPCODE_REPLY:
       if ( waitings.count( msg.sender_ip_address ) ) {
@@ -128,7 +130,6 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
         f.header.dst = msg.sender_ethernet_address;
         pendings.push_back( f );
       }
-      // TODO mov Frame to pending
       break;
     case ARPMessage::OPCODE_REQUEST: {
       if ( msg.target_ip_address != ip_address_.ipv4_numeric() )
