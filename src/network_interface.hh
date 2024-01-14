@@ -148,5 +148,14 @@ public:
   // Called periodically when time elapses
   void tick( size_t ms_since_last_tick );
   NetworkInterface( const NetworkInterface& ) = delete;
-  NetworkInterface( const NetworkInterface&& ) = delete;
+  NetworkInterface( const NetworkInterface&& other )
+    : ethernet_address_( other.ethernet_address_ )
+    , ip_address_( other.ip_address_ )
+    , ARP_REQUEST_HEADER( other.ARP_REQUEST_HEADER )
+    , meta_ip2eth( other.meta_ip2eth )
+    , ip2eth( other.ip2eth )
+    , pendings( other.pendings )
+    , waitings( other.waitings )
+    , timer( meta_ip2eth )
+  {}
 };
