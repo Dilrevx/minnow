@@ -24,10 +24,11 @@ NetworkInterface::NetworkInterface( const EthernetAddress& ethernet_address, con
 // Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  bool has_mac = ip2eth.find( next_hop.ipv4_numeric() ) != ip2eth.end();
+  const auto ip = next_hop.ipv4_numeric();
+  IP2ETH_STATES& meta = meta_ip2eth[ip];
 
   // Send ARP
-  if ( !has_mac ) {
+  if ( meta == IP2ETH_NONE || ( meta == IP2ETH_ARP_SENT && timer.check_event<Timer::TIMER_ARP_TIMEOUT>( ip ) ) ) {
     ARPMessage&& payload = {
       .opcode = ARPMessage::OPCODE_REQUEST,
       .sender_ethernet_address = ethernet_address_,
@@ -35,12 +36,17 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
       .target_ethernet_address = {},
       .target_ip_address = {},
     };
-    EthernetFrame&& frame = { .header = ARP_REQUEST_HEADER, .payload = serialize( payload ) };
+    EthernetFrame&& frame = {
+      .header = ARP_REQUEST_HEADER,
+      .payload = serialize( payload ),
+    };
     pendings.push_back( frame );
+    meta = IP2ETH_ARP_SENT;
+    timer.set_event<Timer::TIMER_ARP_TIMEOUT>( ARP_DEFAULT_TIMEOUT_MS, ip );
   }
 
   EthernetHeader&& header = {
-    .dst = ip2eth[next_hop.ipv4_numeric()],
+    .dst = ip2eth[ip],
     .src = ethernet_address_,
     .type = EthernetHeader::TYPE_IPv4,
   };
@@ -49,11 +55,10 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
     .payload = serialize( dgram ),
   };
 
-  if ( has_mac ) {
+  if ( meta == IP2ETH_VALID ) {
     pendings.emplace_back( frame );
   } else {
-    waitings[next_hop.ipv4_numeric()] = frame;
-    timer.set_event( ARP_DEFAULT_TIMEOUT_MS, next_hop.ipv4_numeric() );
+    waitings[ip] = frame;
   }
 }
 
@@ -78,6 +83,7 @@ optional<InternetDatagram> NetworkInterface::recv_frame( const EthernetFrame& fr
         return nullopt;
 
       ip2eth[ret.header.src] = header.src;
+      timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, ret.header.src );
       return ret;
     }
     default:
@@ -88,7 +94,7 @@ optional<InternetDatagram> NetworkInterface::recv_frame( const EthernetFrame& fr
 // ms_since_last_tick: the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
-  timer.elapse( ms_since_last_tick ).elapse( 0 );
+  timer.elapse( ms_since_last_tick );
 }
 
 optional<EthernetFrame> NetworkInterface::maybe_send()
@@ -100,21 +106,21 @@ optional<EthernetFrame> NetworkInterface::maybe_send()
   return ret;
 }
 
-void NetworkInterface::ARP_handler( const EthernetHeader& header,
+void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& header,
                                     const decltype( EthernetFrame::payload )& payload )
 {
   ARPMessage msg;
   if ( !parse( msg, payload ) )
     return;
 
+  ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
+  timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, msg.sender_ip_address );
   switch ( msg.opcode ) {
     case ARPMessage::OPCODE_REPLY:
-      ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
+
+      // TODO mov Frame to pending
       break;
     case ARPMessage::OPCODE_REQUEST: {
-      // TODO: map 30 s
-      ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
-
       EthernetHeader&& rply_header = {
         .dst = msg.sender_ethernet_address,
         .src = ethernet_address_,

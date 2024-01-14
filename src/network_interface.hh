@@ -1,6 +1,7 @@
 #pragma once
 
 #include "address.hh"
+#include "arp_message.hh"
 #include "ethernet_frame.hh"
 #include "ipv4_datagram.hh"
 
@@ -9,35 +10,8 @@
 #include <optional>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
-
-class Timer
-{
-  size_t time_elapse = 0;
-  // trigger time, ip
-  using ip2eth_event_t = std::pair<uint64_t, uint32_t>;
-  using arp_timeout_event_t = std::pair<uint64_t, uint32_t>;
-  template<typename T, std::enable_if_t<std::is_same_v<T, ip2eth_event_t>>>
-  using q_type = std::priority_queue<T, std::vector<T>, std::greater<T>>
-
-    std::priority_queue<ip2eth_event_t, std::vector<ip2eth_event_t>, std::greater<ip2eth_event_t>> ip2eth_events
-    = {};
-  std::priority_queue<arp_timeout_event_t, std::vector<arp_timeout_event_t>, std::greater<arp_timeout_event_t>>
-    arp_events = {};
-
-public:
-  Timer& elapse( const size_t ms )
-  {
-    time_elapse += ms;
-    return *this;
-  }
-  template<typename event_t>
-  Timer& set_event( const size_t period, const uint32_t ip )
-  {
-    return *this;
-  }
-  bool check_event();
-};
 
 // A "network interface" that connects IP (the internet layer, or network layer)
 // with Ethernet (the network access layer, or link layer).
@@ -62,9 +36,77 @@ public:
 // and learns or replies as necessary.
 class NetworkInterface
 {
+  enum IP2ETH_STATES
+  {
+    IP2ETH_NONE,
+    IP2ETH_ARP_SENT,
+    IP2ETH_VALID
+  };
+  class Timer
+  {
+    template<typename T>
+    using q_type = std::priority_queue<T, std::vector<T>, std::greater<T>>;
+    // trigger time, ip
+    using event_pair_t = std::pair<uint64_t, uint32_t>;
+
+    size_t time_elapse = 0;
+    q_type<event_pair_t> ip2eth_events {};
+    q_type<event_pair_t> arp_events {};
+
+  private:
+    std::unordered_map<uint32_t, IP2ETH_STATES>& ip2eth;
+
+  public:
+    enum EVENT_TYPES
+    {
+      TIMER_IP2ETH_REFRESH,
+      TIMER_ARP_TIMEOUT
+    };
+
+  public:
+    Timer( decltype( ip2eth )& _ip2eth ) : ip2eth( _ip2eth ) {}
+
+    Timer& elapse( const size_t ms )
+    {
+      time_elapse += ms;
+      while ( !ip2eth_events.empty() && ip2eth_events.top().first <= time_elapse ) {
+        auto [_, ip] = ip2eth_events.top();
+        ip2eth[ip] = IP2ETH_NONE;
+        ip2eth_events.pop();
+      }
+      while ( !arp_events.empty() && arp_events.top().first <= time_elapse ) {
+        auto [_, ip] = arp_events.top();
+
+        arp_events.pop();
+      }
+      if ( ip2eth_events.empty() && arp_events.empty() )
+        time_elapse = 0;
+      return *this;
+    }
+    template<EVENT_TYPES event_type>
+    Timer& set_event( const size_t period, const uint32_t ip )
+    {
+      if constexpr ( event_type == TIMER_IP2ETH_REFRESH ) {
+        ip2eth_events.push( { period + time_elapse, ip } );
+      } else {
+        arp_events.push( { period + time_elapse, ip } );
+      }
+      return *this;
+    }
+    template<EVENT_TYPES event_type>
+    bool check_event( const uint32_t& ip )
+    {
+      if constexpr ( event_type == TIMER_IP2ETH_REFRESH ) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }
+  };
+
 private:
   static constexpr uint64_t ARP_DEFAULT_TIMEOUT_MS = 5 * 1000;
-  static constexpr uint64_t ARP_MAPPING_TIMEOUT_MS = 30 * 1000;
+  static constexpr uint64_t IP2ETH_MAPPING_TIMEOUT_MS = 30 * 1000;
 
   // Ethernet (known as hardware, network-access, or link-layer) address of the interface
   EthernetAddress ethernet_address_;
@@ -74,11 +116,12 @@ private:
   EthernetHeader ARP_REQUEST_HEADER;
 
 private:
-  std::unordered_map<uint32_t, EthernetAddress> ip2eth = {};
-  std::deque<EthernetFrame> pendings = {};
-  std::unordered_map<uint32_t, EthernetFrame> waitings = {};
+  std::unordered_map<uint32_t, IP2ETH_STATES> meta_ip2eth {};
+  std::unordered_map<uint32_t, EthernetAddress> ip2eth {};
+  std::deque<EthernetFrame> pendings {};
+  std::unordered_map<uint32_t, EthernetFrame> waitings {};
 
-  Timer timer = {};
+  Timer timer {};
   void ARP_handler( const EthernetHeader&, const decltype( EthernetFrame::payload )& );
 
 public:
