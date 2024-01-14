@@ -53,8 +53,9 @@ class NetworkInterface
     q_type<event_pair_t> ip2eth_events {};
     q_type<event_pair_t> arp_events {};
 
-  private:
+  public:
     std::unordered_map<uint32_t, IP2ETH_STATES>& ip2eth;
+    std::unordered_set<uint32_t> arps {};
 
   public:
     enum EVENT_TYPES
@@ -64,7 +65,7 @@ class NetworkInterface
     };
 
   public:
-    Timer( decltype( ip2eth )& _ip2eth ) : ip2eth( _ip2eth ) {}
+    Timer( std::unordered_map<uint32_t, IP2ETH_STATES>& _ip2eth ) : ip2eth( _ip2eth ) {}
 
     Timer& elapse( const size_t ms )
     {
@@ -76,7 +77,7 @@ class NetworkInterface
       }
       while ( !arp_events.empty() && arp_events.top().first <= time_elapse ) {
         auto [_, ip] = arp_events.top();
-
+        arps.emplace( ip );
         arp_events.pop();
       }
       if ( ip2eth_events.empty() && arp_events.empty() )
@@ -96,11 +97,8 @@ class NetworkInterface
     template<EVENT_TYPES event_type>
     bool check_event( const uint32_t& ip )
     {
-      if constexpr ( event_type == TIMER_IP2ETH_REFRESH ) {
-        return 1;
-      } else {
-        return 0;
-      }
+      static_assert( event_type == TIMER_ARP_TIMEOUT );
+      return arps.contains( ip ) && ( arps.erase( ip ) );
     }
   };
 
@@ -121,7 +119,7 @@ private:
   std::deque<EthernetFrame> pendings {};
   std::unordered_map<uint32_t, EthernetFrame> waitings {};
 
-  Timer timer {};
+  Timer timer { meta_ip2eth };
   void ARP_handler( const EthernetHeader&, const decltype( EthernetFrame::payload )& );
 
 public:

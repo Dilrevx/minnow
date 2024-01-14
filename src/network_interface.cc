@@ -4,6 +4,7 @@
 #include "ethernet_frame.hh"
 
 using namespace std;
+constexpr bool ETHERNET_DEBUG = false;
 
 // ethernet_address: Ethernet (what ARP calls "hardware") address of the interface
 // ip_address: IP (what ARP calls "protocol") address of the interface
@@ -34,7 +35,7 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
       .sender_ethernet_address = ethernet_address_,
       .sender_ip_address = ip_address_.ipv4_numeric(),
       .target_ethernet_address = {},
-      .target_ip_address = {},
+      .target_ip_address = ip,
     };
     EthernetFrame&& frame = {
       .header = ARP_REQUEST_HEADER,
@@ -69,26 +70,31 @@ optional<InternetDatagram> NetworkInterface::recv_frame( const EthernetFrame& fr
   const auto& payload = frame.payload;
 
   if ( header.dst != ETHERNET_BROADCAST && header.dst != ethernet_address_ ) {
-    throw runtime_error( "New Ethernet Address: " + header.to_string() );
+    if constexpr ( ETHERNET_DEBUG )
+      throw runtime_error( "New Ethernet Address: " + header.to_string() );
+    else
+      return nullopt;
   }
 
   switch ( header.type ) {
     case EthernetHeader::TYPE_ARP:
       ARP_handler( header, payload );
-      return nullopt;
+      break;
 
     case EthernetHeader::TYPE_IPv4: {
       InternetDatagram ret;
       if ( !parse( ret, payload ) )
-        return nullopt;
+        break;
 
       ip2eth[ret.header.src] = header.src;
       timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, ret.header.src );
       return ret;
     }
     default:
-      throw runtime_error( "Ethernet header type not supported: " + header.to_string() );
+      if constexpr ( ETHERNET_DEBUG )
+        throw runtime_error( "Ethernet header type not supported: " + header.to_string() );
   }
+  return nullopt;
 }
 
 // ms_since_last_tick: the number of milliseconds since the last call to this method
@@ -112,15 +118,21 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
   ARPMessage msg;
   if ( !parse( msg, payload ) )
     return;
-
+  meta_ip2eth[msg.sender_ip_address] = IP2ETH_VALID;
   ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
   timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, msg.sender_ip_address );
   switch ( msg.opcode ) {
     case ARPMessage::OPCODE_REPLY:
-
+      if ( waitings.count( msg.sender_ip_address ) ) {
+        auto& f = waitings[msg.sender_ip_address];
+        f.header.dst = msg.sender_ethernet_address;
+        pendings.push_back( f );
+      }
       // TODO mov Frame to pending
       break;
     case ARPMessage::OPCODE_REQUEST: {
+      if ( msg.target_ip_address != ip_address_.ipv4_numeric() )
+        break;
       EthernetHeader&& rply_header = {
         .dst = msg.sender_ethernet_address,
         .src = ethernet_address_,
@@ -141,6 +153,7 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
       break;
     }
     default:
-      throw runtime_error( "Not supported ARP opcode: " + msg.to_string() );
+      if constexpr ( ETHERNET_DEBUG )
+        throw runtime_error( "Not supported ARP opcode: " + msg.to_string() );
   }
 }
