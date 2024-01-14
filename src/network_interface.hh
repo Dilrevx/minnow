@@ -100,6 +100,8 @@ class NetworkInterface
       static_assert( event_type == TIMER_ARP_TIMEOUT );
       return arps.contains( ip ) && ( arps.erase( ip ) );
     }
+    Timer( Timer& ) = delete;
+    Timer( Timer&& ) = delete;
   };
 
 private:
@@ -145,4 +147,6 @@ public:
 
   // Called periodically when time elapses
   void tick( size_t ms_since_last_tick );
+  NetworkInterface( const NetworkInterface& ) = delete;
+  NetworkInterface( const NetworkInterface&& ) = delete;
 };
