@@ -11,6 +11,34 @@
 #include <unordered_map>
 #include <utility>
 
+class Timer
+{
+  size_t time_elapse = 0;
+  // trigger time, ip
+  using ip2eth_event_t = std::pair<uint64_t, uint32_t>;
+  using arp_timeout_event_t = std::pair<uint64_t, uint32_t>;
+  template<typename T, std::enable_if_t<std::is_same_v<T, ip2eth_event_t>>>
+  using q_type = std::priority_queue<T, std::vector<T>, std::greater<T>>
+
+    std::priority_queue<ip2eth_event_t, std::vector<ip2eth_event_t>, std::greater<ip2eth_event_t>> ip2eth_events
+    = {};
+  std::priority_queue<arp_timeout_event_t, std::vector<arp_timeout_event_t>, std::greater<arp_timeout_event_t>>
+    arp_events = {};
+
+public:
+  Timer& elapse( const size_t ms )
+  {
+    time_elapse += ms;
+    return *this;
+  }
+  template<typename event_t>
+  Timer& set_event( const size_t period, const uint32_t ip )
+  {
+    return *this;
+  }
+  bool check_event();
+};
+
 // A "network interface" that connects IP (the internet layer, or network layer)
 // with Ethernet (the network access layer, or link layer).
 
@@ -47,20 +75,11 @@ private:
 
 private:
   std::unordered_map<uint32_t, EthernetAddress> ip2eth = {};
-  std::deque<EthernetFrame> pendings = {}, sends = {};
+  std::deque<EthernetFrame> pendings = {};
+  std::unordered_map<uint32_t, EthernetFrame> waitings = {};
 
-  class Timer
-  {
-    size_t time_elapse = 0;
-
-  public:
-    Timer& elapse( const size_t ms )
-    {
-      time_elapse += ms;
-      return *this;
-    }
-  };
   Timer timer = {};
+  void ARP_handler( const EthernetHeader&, const decltype( EthernetFrame::payload )& );
 
 public:
   // Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer)
