@@ -4,7 +4,6 @@
 #include "ethernet_frame.hh"
 
 using namespace std;
-constexpr bool ETHERNET_DEBUG = false;
 
 // ethernet_address: Ethernet (what ARP calls "hardware") address of the interface
 // ip_address: IP (what ARP calls "protocol") address of the interface

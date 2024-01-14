@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utility>
 
+constexpr bool ETHERNET_DEBUG = false;
 // A "network interface" that connects IP (the internet layer, or network layer)
 // with Ethernet (the network access layer, or link layer).
 
@@ -44,52 +45,63 @@ class NetworkInterface
   };
   class Timer
   {
-    template<typename T>
-    using q_type = std::priority_queue<T, std::vector<T>, std::greater<T>>;
-    // trigger time, ip
-    using event_pair_t = std::pair<uint64_t, uint32_t>;
-
-    size_t time_elapse = 0;
-    q_type<event_pair_t> ip2eth_events {};
-    q_type<event_pair_t> arp_events {};
-
-    std::unordered_map<uint32_t, IP2ETH_STATES>& ip2eth;
-
   public:
     enum EVENT_TYPES
     {
-      TIMER_IP2ETH_REFRESH,
-      TIMER_ARP_TIMEOUT
+      TIMER_NO_EVENT = 0,
+      TIMER_IP2ETH_REFRESH = 1,
+      TIMER_ARP_TIMEOUT = 2
     };
 
+  private:
+    size_t time_elapse = 0;
+    std::unordered_map<uint32_t, IP2ETH_STATES>& ip2eth;
+
+    using event_pair_t = std::pair<uint64_t, EVENT_TYPES>;
+    std::unordered_map<uint32_t, event_pair_t> events {};
+
   public:
-    Timer( std::unordered_map<uint32_t, IP2ETH_STATES>& _ip2eth ) : ip2eth( _ip2eth ) {}
+    Timer( decltype( ip2eth ) _ip2eth ) : ip2eth( _ip2eth ) {}
 
     Timer& elapse( const size_t ms )
     {
       time_elapse += ms;
-      while ( !ip2eth_events.empty() && ip2eth_events.top().first <= time_elapse ) {
-        auto [_, ip] = ip2eth_events.top();
-        ip2eth[ip] = IP2ETH_NONE;
-        ip2eth_events.pop();
+      std::vector<uint32_t> ip_removals;
+
+      for ( auto [ip, pair] : events ) {
+        auto [t, _] = pair;
+        if ( t <= time_elapse ) {
+          ip2eth[ip] = NetworkInterface::IP2ETH_NONE;
+          ip_removals.emplace_back( ip );
+        }
       }
-      while ( !arp_events.empty() && arp_events.top().first <= time_elapse ) {
-        auto [_, ip] = arp_events.top();
-        if ( ip2eth[ip] == IP2ETH_ARP_SENT )
-          ip2eth[ip] = IP2ETH_NONE;
-        arp_events.pop();
-      }
-      if ( ip2eth_events.empty() && arp_events.empty() )
+      for ( auto ip : ip_removals )
+        events.erase( ip );
+      if ( events.empty() ) {
+        events.clear();
         time_elapse = 0;
+      }
+
       return *this;
     }
     template<EVENT_TYPES event_type>
     Timer& set_event( const size_t period, const uint32_t ip )
     {
       if constexpr ( event_type == TIMER_IP2ETH_REFRESH ) {
-        ip2eth_events.push( { period + time_elapse, ip } );
+        events[ip] = { period + time_elapse, TIMER_IP2ETH_REFRESH };
+      } else if constexpr ( event_type == TIMER_NO_EVENT ) {
+        events.erase( ip );
       } else {
-        arp_events.push( { period + time_elapse, ip } );
+        switch ( events[ip].second ) {
+          case TIMER_ARP_TIMEOUT:
+          case TIMER_NO_EVENT:
+            events[ip].first = period + time_elapse;
+            break;
+          default:
+            if constexpr ( ETHERNET_DEBUG )
+              throw std::runtime_error( "Inconsist Timer events: time-" + std::to_string( events[ip].first )
+                                        + "type" + std::to_string( events[ip].second ) );
+        }
       }
       return *this;
     }
