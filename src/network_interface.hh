@@ -35,11 +35,32 @@
 class NetworkInterface
 {
 private:
+  static constexpr uint64_t ARP_DEFAULT_TIMEOUT_MS = 5 * 1000;
+  static constexpr uint64_t ARP_MAPPING_TIMEOUT_MS = 30 * 1000;
+
   // Ethernet (known as hardware, network-access, or link-layer) address of the interface
   EthernetAddress ethernet_address_;
 
   // IP (known as Internet-layer or network-layer) address of the interface
   Address ip_address_;
+  EthernetHeader ARP_REQUEST_HEADER;
+
+private:
+  std::unordered_map<uint32_t, EthernetAddress> ip2eth = {};
+  std::deque<EthernetFrame> pendings = {}, sends = {};
+
+  class Timer
+  {
+    size_t time_elapse = 0;
+
+  public:
+    Timer& elapse( const size_t ms )
+    {
+      time_elapse += ms;
+      return *this;
+    }
+  };
+  Timer timer = {};
 
 public:
   // Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer)
