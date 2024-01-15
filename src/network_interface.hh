@@ -8,6 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <optional>
 #include <queue>
 #include <unordered_map>
@@ -59,24 +60,24 @@ class NetworkInterface
 
     using event_pair_t = std::pair<uint64_t, EVENT_TYPES>;
     std::unordered_map<uint32_t, event_pair_t> events {};
-    std::function<NetworkInterface&( NetworkInterface*, const uint32_t, const IP2ETH_STATES )> setter;
+    std::shared_ptr<std::unordered_map<uint32_t, IP2ETH_STATES>> meta;
 
   public:
-    Timer( decltype( setter ) _s ) : setter( _s ) {}
+    Timer( decltype( meta ) _m ) : meta( _m ) {}
     Timer& elapse( const size_t ms )
     {
       time_elapse += ms;
-      std::vector<uint32_t> ip_removals;
+      // std::vector<uint32_t> ip_removals;
 
       for ( auto [ip, pair] : events ) {
         auto [t, _] = pair;
         if ( t <= time_elapse ) {
-          setter( ip, IP2ETH_NONE );
-          ip_removals.emplace_back( ip );
+          ( *meta )[ip] = IP2ETH_NONE;
+          // ip_removals.emplace_back( ip );
         }
       }
-      for ( auto ip : ip_removals )
-        events.erase( ip );
+      // for ( auto ip : ip_removals )
+      //   events.erase( ip );
       if ( events.empty() ) {
         events.clear();
         time_elapse = 0;
@@ -105,10 +106,6 @@ class NetworkInterface
       }
       return *this;
     }
-
-    // Timer( const Timer& ) = delete;
-    // Timer( const Timer&& ) = delete;
-    // Timer& operator=( const Timer& ) = delete;
   };
 
 private:
@@ -123,19 +120,14 @@ private:
   EthernetHeader ARP_REQUEST_HEADER;
 
 private:
-  std::unordered_map<uint32_t, IP2ETH_STATES> meta_ip2eth {};
+  std::shared_ptr<std::unordered_map<uint32_t, IP2ETH_STATES>> meta_ip2eth;
   std::unordered_map<uint32_t, EthernetAddress> ip2eth {};
   void ARP_handler( const EthernetHeader&, const decltype( EthernetFrame::payload )& );
-  NetworkInterface& set_ip2eth( const uint32_t ip, const IP2ETH_STATES s )
-  {
-    meta_ip2eth[ip] = s;
-    return *this;
-  }
 
   std::deque<EthernetFrame> pendings {};                   // pkt to send
   std::unordered_map<uint32_t, EthernetFrame> waitings {}; // IP dgram waiting MAC
 
-  Timer timer { set_ip2eth };
+  Timer timer { meta_ip2eth };
 
 public:
   // Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer)
@@ -160,15 +152,4 @@ public:
 
   // Called periodically when time elapses
   void tick( size_t ms_since_last_tick );
-  NetworkInterface( const NetworkInterface& ) = delete;
-  NetworkInterface( const NetworkInterface&& other )
-    : ethernet_address_( other.ethernet_address_ )
-    , ip_address_( other.ip_address_ )
-    , ARP_REQUEST_HEADER( other.ARP_REQUEST_HEADER )
-    , meta_ip2eth( other.meta_ip2eth )
-    , ip2eth( other.ip2eth )
-    , pendings( other.pendings )
-    , waitings( other.waitings )
-    , timer( meta_ip2eth )
-  {}
 };

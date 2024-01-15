@@ -11,6 +11,7 @@ NetworkInterface::NetworkInterface( const EthernetAddress& ethernet_address, con
   : ethernet_address_( ethernet_address )
   , ip_address_( ip_address )
   , ARP_REQUEST_HEADER( { .dst = ETHERNET_BROADCAST, .src = ethernet_address, .type = EthernetHeader::TYPE_ARP } )
+  , meta_ip2eth( make_shared<unordered_map<uint32_t, IP2ETH_STATES>>() )
 {
   cerr << "DEBUG: Network interface has Ethernet address " << to_string( ethernet_address_ ) << " and IP address "
        << ip_address.ip() << "\n";
@@ -25,7 +26,7 @@ NetworkInterface::NetworkInterface( const EthernetAddress& ethernet_address, con
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
   const auto ip = next_hop.ipv4_numeric();
-  IP2ETH_STATES& meta = meta_ip2eth[ip];
+  IP2ETH_STATES& meta = ( *meta_ip2eth )[ip];
 
   // Send ARP
   if ( meta == IP2ETH_NONE ) {
@@ -118,7 +119,7 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
   if ( !parse( msg, payload ) )
     return;
 
-  meta_ip2eth[msg.sender_ip_address] = IP2ETH_VALID;
+  ( *meta_ip2eth )[msg.sender_ip_address] = IP2ETH_VALID;
   ip2eth[msg.sender_ip_address] = msg.sender_ethernet_address;
   timer.set_event<Timer::TIMER_IP2ETH_REFRESH>( IP2ETH_MAPPING_TIMEOUT_MS, msg.sender_ip_address );
 
