@@ -30,34 +30,34 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 
   // Send ARP
   if ( meta == IP2ETH_NONE ) {
-    ARPMessage&& payload = {
+    ARPMessage payload = {
       .opcode = ARPMessage::OPCODE_REQUEST,
       .sender_ethernet_address = ethernet_address_,
       .sender_ip_address = ip_address_.ipv4_numeric(),
       .target_ethernet_address = {},
       .target_ip_address = ip,
     };
-    EthernetFrame&& frame = {
+    EthernetFrame frame = {
       .header = ARP_REQUEST_HEADER,
-      .payload = serialize( payload ),
+      .payload = serialize( move( payload ) ),
     };
-    pendings.push_back( frame );
+    pendings.push_back( move( frame ) );
     meta = IP2ETH_ARP_SENT;
     timer.set_event<Timer::TIMER_ARP_TIMEOUT>( ARP_DEFAULT_TIMEOUT_MS, ip );
   }
 
-  EthernetHeader&& header = {
+  EthernetHeader header = {
     .dst = ip2eth[ip],
     .src = ethernet_address_,
     .type = EthernetHeader::TYPE_IPv4,
   };
-  EthernetFrame&& frame = {
-    .header = header,
+  EthernetFrame frame = {
+    .header = move( header ),
     .payload = serialize( dgram ),
   };
 
   if ( meta == IP2ETH_VALID ) {
-    pendings.emplace_back( frame );
+    pendings.emplace_back( move( frame ) );
   } else {
     waitings[ip] = frame;
   }
@@ -134,23 +134,23 @@ void NetworkInterface::ARP_handler( [[maybe_unused]] const EthernetHeader& heade
     case ARPMessage::OPCODE_REQUEST: {
       if ( msg.target_ip_address != ip_address_.ipv4_numeric() )
         break;
-      EthernetHeader&& rply_header = {
+      EthernetHeader rply_header = {
         .dst = msg.sender_ethernet_address,
         .src = ethernet_address_,
         .type = EthernetHeader::TYPE_ARP,
       };
-      ARPMessage&& rply_msg = {
+      ARPMessage rply_msg = {
         .opcode = ARPMessage::OPCODE_REPLY,
         .sender_ethernet_address = ethernet_address_,
         .sender_ip_address = ip_address_.ipv4_numeric(),
         .target_ethernet_address = msg.sender_ethernet_address,
         .target_ip_address = msg.sender_ip_address,
       };
-      EthernetFrame&& rply_frame = {
-        .header = rply_header,
-        .payload = serialize( rply_msg ),
+      EthernetFrame rply_frame = {
+        .header = move( rply_header ),
+        .payload = serialize( move( rply_msg ) ),
       };
-      pendings.emplace_back( rply_frame );
+      pendings.emplace_back( move( rply_frame ) );
       break;
     }
     default:
