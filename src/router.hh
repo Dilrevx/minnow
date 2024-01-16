@@ -55,6 +55,9 @@ class Router
   // The router's collection of network interfaces
   std::vector<AsyncNetworkInterface> interfaces_ {};
 
+  using _prefix_mask_t = std::pair<uint32_t, uint8_t>;
+  std::vector<std::tuple<uint32_t, uint8_t, std::optional<Address>, std::size_t>> route_table {};
+
 public:
   // Add an interface to the router
   // interface: an already-constructed network interface
@@ -81,4 +84,5 @@ public:
   // route with the longest prefix_length that matches the datagram's
   // destination address.
   void route();
+  std::optional<std::pair<Address, std::size_t>> match_rt_entry( const uint32_t ip );
 };
