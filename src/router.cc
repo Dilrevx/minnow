@@ -42,8 +42,7 @@ void Router::route()
           continue;
 
         auto [next_hop, if_n] = rtentry.value();
-        auto& dstif = interface( if_n );
-        dstif.send_datagram( dgram, next_hop );
+        interface( if_n ).send_datagram( dgram, next_hop );
       }
     }
   } while ( false );
