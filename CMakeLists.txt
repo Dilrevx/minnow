@@ -10,14 +10,17 @@ if(${PROJECT_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL_ERROR "Minnow must be built outside its source directory, e.g. `cmake -B build`.")
 endif()
 
+# Include Cmake modules in current scope.
 include(etc/build_type.cmake)
 include(etc/cflags.cmake)
 include(etc/scanners.cmake)
 include(etc/tests.cmake)
 
+# Add include directories here.
 include_directories("${PROJECT_SOURCE_DIR}/util")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
+# Add subsequent CMakelists.txt subdirectories here.
 add_subdirectory("${PROJECT_SOURCE_DIR}/util")
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 add_subdirectory("${PROJECT_SOURCE_DIR}/tests")

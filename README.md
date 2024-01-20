@@ -42,3 +42,8 @@ Network Interface:
 - 报文的类型不拘泥于标准，可以先用易读的语言写好，发送时转换
 - 面向对象，泛型编程，框架有一些设计模式。例如测试框架，要做的步骤可以固定拆解，于是有比较好的框架。
 - 
+
+---
+CMake 结构
+- app, util, test, src 各自子目录通过指定 .cc 源文件的方法定义 library target，executable target 和 custom target。对于 custom target，在子目录 scope 下定义 custom command 和 dependency。
+- 全局 scope 定义了编译器变量、include 目录、编译类型等参数，导入子目录

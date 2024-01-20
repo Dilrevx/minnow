@@ -3,6 +3,7 @@ add_library(minnow_testing_debug STATIC common.cc)
 add_library(minnow_testing_sanitized EXCLUDE_FROM_ALL STATIC common.cc)
 target_compile_options(minnow_testing_sanitized PUBLIC ${SANITIZING_FLAGS})
 
+# empty target names, custom dependencies and custom commands are later defined
 add_custom_target(functionality_testing)
 add_custom_target(speed_testing)
 
