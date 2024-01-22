@@ -50,7 +50,8 @@ int main( int argc, char** argv )
   pair<thread, thread> threads = make_pair( thread { a2b, ref( server_pair ), ref( client_pair ) },
                                             thread { a2b, ref( client_pair ), ref( server_pair ) } );
 
-  threads.first.detach();
-  threads.second.detach();
+  while ( true )
+    this_thread::sleep_for( chrono::seconds( 9999999999 ) );
+
   return EXIT_SUCCESS;
 }
