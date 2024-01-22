@@ -47,3 +47,12 @@ Network Interface:
 CMake 结构
 - app, util, test, src 各自子目录通过指定 .cc 源文件的方法定义 library target，executable target 和 custom target。对于 custom target，在子目录 scope 下定义 custom command 和 dependency。
 - 全局 scope 定义了编译器变量、include 目录、编译类型等参数，导入子目录
+
+
+---
+
+Lab6 在 TA 服务器做了双向的 **UDP** 端口转发，sender -> 90 -> 91 -> receiver. 90，91 端口收到开始的报文后确定转发的目的地址
+
+Lab6 框架实现了类似 linux kernel 的 api。模拟 1234 端口的通信
+
+（原来 c++20 不是说 string 可以 constexpr，而是可以在编译器*内存没有 cost* 的情况下支持计算
