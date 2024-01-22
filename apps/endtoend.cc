@@ -64,6 +64,7 @@ string summary( const EthernetFrame& frame )
   return out;
 }
 
+// read from fd, return EthernetFrame if parsed
 optional<EthernetFrame> maybe_receive_frame( FileDescriptor& fd )
 {
   vector<string> strs( 3 );
@@ -81,6 +82,7 @@ optional<EthernetFrame> maybe_receive_frame( FileDescriptor& fd )
   return frame;
 }
 
+// Adapter between previous implementation of Interface and communicating socket
 class NetworkInterfaceAdapter : public TCPOverIPv4Adapter
 {
 private:
