@@ -28,8 +28,8 @@ int main( int argc, char** argv )
   s_sock.bind( { localhost, s_port } );
   c_sock.bind( { localhost, c_port } );
 
-  auto server_pair = make_pair( server, s_sock );
-  auto client_pair = make_pair( client, c_sock );
+  auto server_pair = make_pair( server, move( s_sock ) );
+  auto client_pair = make_pair( client, move( c_sock ) );
 
   function a2b = [&]( pair<Address, UDPSocket>& a, pair<Address, UDPSocket>& b ) {
     pollfd afd { a.second.fd_num(), POLLIN, 0 };
@@ -47,8 +47,8 @@ int main( int argc, char** argv )
     }
   };
 
-  pair<thread, thread> threads
-    = make_pair( thread { a2b, server_pair, client_pair }, thread { a2b, client_pair, server_pair } );
+  pair<thread, thread> threads = make_pair( thread { a2b, ref( server_pair ), ref( client_pair ) },
+                                            thread { a2b, ref( client_pair ), ref( server_pair ) } );
 
   threads.first.detach();
   threads.second.detach();
