@@ -80,6 +80,21 @@ void EventLoop::RuleHandle::cancel()
 
 // NOLINTBEGIN(*-cognitive-complexity)
 // NOLINTBEGIN(*-signed-bitwise)
+/**
+ * @brief Serve one rule. non_fd_rule first.
+ *
+ * For non fd rules, just loop over the list, callback if interest
+ *
+ * For fd rules, check eof, poll the non-closed fds, recover/callback depending on revents, close hung fds and throw
+ * fd/socket errors
+ *
+ * Busy wait is thrown if a non fd rule is still interested after 128 iterations, or if poll returns but fd is not
+ * properly serviced
+ *
+ * To cancel a rule, check inline docs
+ * @param timeout_ms
+ * @return EventLoop::Result
+ */
 EventLoop::Result EventLoop::wait_next_event( const int timeout_ms )
 {
   // first, handle the non-file-descriptor-related rules
@@ -178,6 +193,7 @@ EventLoop::Result EventLoop::wait_next_event( const int timeout_ms )
       }
 
       /* see if fd is a socket */
+      // The following logic checks fd type to print pretty error messages
       int socket_error = 0;
       socklen_t optlen = sizeof( socket_error );
       const int ret = getsockopt( this_rule.fd.fd_num(), SOL_SOCKET, SO_ERROR, &socket_error, &optlen );

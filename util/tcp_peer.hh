@@ -9,6 +9,7 @@
 
 #include <optional>
 
+// Consists sender, receiver, reassembler, io stream
 class TCPPeer
 {
   TCPConfig cfg_;

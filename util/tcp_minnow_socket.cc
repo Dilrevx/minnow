@@ -27,6 +27,7 @@ static inline uint64_t timestamp_ms()
   return std::chrono::steady_clock::now().time_since_epoch().count() / 1000000;
 }
 
+//! while condition, wait for next eventloop event to send TCPSegment(contains a send and a recv msg)
 //! \param[in] condition is a function returning true if loop should continue
 template<typename AdaptT>
 void TCPMinnowSocket<AdaptT>::_tcp_loop( const function<bool()>& condition )
